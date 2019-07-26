@@ -2,7 +2,7 @@
   "source": "Unity",
   "applications": [
     {
-      "app_key": "application.generated.unity.steamvr_input_test_2.exe",
+      "app_key": "application.generated.unity.steamvr_input_test.exe",
       "launch_type": "url",
       "url": "steam://launch/",
       "action_manifest_path": "D:\\Project HTC VIVE\\SteamVR_Input_test\\actions.json",
