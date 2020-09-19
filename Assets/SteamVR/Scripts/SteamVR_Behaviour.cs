@@ -144,7 +144,7 @@ namespace Valve.VR
             }
             else
             {
-                Debug.LogError("<b>[SteamVR]</b> Tried to async load: " + openVRDeviceName + ". Loaded: " + deviceName, this);
+                Debug.LogError("<b>[SteamVR]</b> Tried to async load: " + openVRDeviceName + ". Loaded: " + deviceName);
                 loadedOpenVRDeviceSuccess = true; //try anyway
             }
         }
@@ -184,8 +184,8 @@ namespace Valve.VR
 		    Application.onBeforeRender -= OnBeforeRender;
             SteamVR_Events.System(EVREventType.VREvent_Quit).Remove(OnQuit);
         }
-	    protected void OnBeforeRender()
-        {
+	    protected void OnBeforeRender() 
+        { 
             PreCull();
         }
 #else
@@ -211,40 +211,28 @@ namespace Valve.VR
         protected static int lastFrameCount = -1;
         protected void PreCull()
         {
-            if (OpenVR.Input != null)
+            // Only update poses on the first camera per frame.
+            if (Time.frameCount != lastFrameCount)
             {
-                // Only update poses on the first camera per frame.
-                if (Time.frameCount != lastFrameCount)
-                {
-                    lastFrameCount = Time.frameCount;
+                lastFrameCount = Time.frameCount;
 
-                    SteamVR_Input.OnPreCull();
-                }
+                SteamVR_Input.OnPreCull();
             }
         }
 
         protected void FixedUpdate()
         {
-            if (OpenVR.Input != null)
-            {
-                SteamVR_Input.FixedUpdate();
-            }
+            SteamVR_Input.FixedUpdate();
         }
 
         protected void LateUpdate()
         {
-            if (OpenVR.Input != null)
-            {
-                SteamVR_Input.LateUpdate();
-            }
+            SteamVR_Input.LateUpdate();
         }
 
         protected void Update()
         {
-            if (OpenVR.Input != null)
-            {
-                SteamVR_Input.Update();
-            }
+            SteamVR_Input.Update();
         }
 
         protected void OnQuit(VREvent_t vrEvent)

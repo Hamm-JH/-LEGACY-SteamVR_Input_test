@@ -246,19 +246,43 @@ namespace Valve.VR
             return setData.GetShortName();
         }
 
+        VRActiveActionSet_t[] emptySetCache = new VRActiveActionSet_t[0];
+        VRActiveActionSet_t[] setCache = new VRActiveActionSet_t[1];
         /// <summary>
         /// Shows all the bindings for the actions in this set.
         /// </summary>
-        /// <param name="originToHighlight">Highlights the binding of the passed in action (must be in an active set)</param>
+        /// <param name="originToHighlight">Highlights the binding of the passed in action (or the first action in the set if none is specified)</param>
         /// <returns></returns>
         public bool ShowBindingHints(ISteamVR_Action_In originToHighlight = null)
         {
             if (originToHighlight == null)
-                return SteamVR_Input.ShowBindingHints(this);
-            else
-                return SteamVR_Input.ShowBindingHints(originToHighlight);
+            {
+                for (int actionIndex = 0; actionIndex < allActions.Length; actionIndex++)
+                {
+                    if (allActions[actionIndex].direction == SteamVR_ActionDirections.In && allActions[actionIndex].active)
+                    {
+                        originToHighlight = (ISteamVR_Action_In)allActions[actionIndex];
+                        break;
+                    }
+                }
+            }
+
+
+            if (originToHighlight != null)
+            {
+                setCache[0].ulActionSet = this.handle;
+                OpenVR.Input.ShowBindingsForActionSet(setCache, 1, originToHighlight.activeOrigin);
+                return true;
+            }
+
+            return false;
         }
 
+        public void HideBindingHints()
+        {
+            OpenVR.Input.ShowBindingsForActionSet(emptySetCache, 0, 0);
+        }
+        
 
         public bool ReadRawSetActive(SteamVR_Input_Sources inputSource)
         {
@@ -399,16 +423,25 @@ namespace Valve.VR
 
         public ulong handle { get; set; }
 
-        protected bool[] rawSetActive = new bool[SteamVR_Input_Source.numSources];
+        protected Dictionary<SteamVR_Input_Sources, bool> rawSetActive = new Dictionary<SteamVR_Input_Sources, bool>(new SteamVR_Input_Sources_Comparer());
 
-        protected float[] rawSetLastChanged = new float[SteamVR_Input_Source.numSources];
+        protected Dictionary<SteamVR_Input_Sources, float> rawSetLastChanged = new Dictionary<SteamVR_Input_Sources, float>(new SteamVR_Input_Sources_Comparer());
 
-        protected int[] rawSetPriority = new int[SteamVR_Input_Source.numSources];
+        protected Dictionary<SteamVR_Input_Sources, int> rawSetPriority = new Dictionary<SteamVR_Input_Sources, int>(new SteamVR_Input_Sources_Comparer());
 
         protected bool initialized = false;
 
         public void PreInitialize()
         {
+            SteamVR_Input_Sources[] sources = SteamVR_Input_Source.GetAllSources();
+
+            for (int sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
+            {
+                SteamVR_Input_Sources source = sources[sourceIndex];
+                rawSetActive.Add(source, false);
+                rawSetLastChanged.Add(source, 0);
+                rawSetPriority.Add(source, 0);
+            }
         }
 
         public void FinishPreInitialize()
@@ -485,10 +518,8 @@ namespace Valve.VR
         /// <param name="source">The device to check. Any means all devices here (not left or right, but all)</param>
         public bool IsActive(SteamVR_Input_Sources source = SteamVR_Input_Sources.Any)
         {
-            int sourceIndex = (int)source;
-
             if (initialized)
-                return rawSetActive[sourceIndex] || rawSetActive[0];
+                return rawSetActive[source] || rawSetActive[SteamVR_Input_Sources.Any];
 
             return false;
         }
@@ -499,10 +530,8 @@ namespace Valve.VR
         /// <param name="source">The device to check. Any means all devices here (not left or right, but all)</param>
         public float GetTimeLastChanged(SteamVR_Input_Sources source = SteamVR_Input_Sources.Any)
         {
-            int sourceIndex = (int)source;
-
             if (initialized)
-                return rawSetLastChanged[sourceIndex];
+                return rawSetLastChanged[source];
             return 0;
         }
 
@@ -514,25 +543,23 @@ namespace Valve.VR
         /// <param name="activateForSource">Will activate this action set only for the specified source. Any if you want to activate for everything</param>
         public void Activate(SteamVR_Input_Sources activateForSource = SteamVR_Input_Sources.Any, int priority = 0, bool disableAllOtherActionSets = false)
         {
-            int sourceIndex = (int)activateForSource;
-
             if (disableAllOtherActionSets)
                 SteamVR_ActionSet_Manager.DisableAllActionSets();
 
-            if (rawSetActive[sourceIndex] == false)
+            if (rawSetActive[activateForSource] == false)
             {
-                rawSetActive[sourceIndex] = true;
+                rawSetActive[activateForSource] = true;
                 SteamVR_ActionSet_Manager.SetChanged();
 
-                rawSetLastChanged[sourceIndex] = Time.realtimeSinceStartup;
+                rawSetLastChanged[activateForSource] = Time.realtimeSinceStartup;
             }
 
-            if (rawSetPriority[sourceIndex] != priority)
+            if (rawSetPriority[activateForSource] != priority)
             {
-                rawSetPriority[sourceIndex] = priority;
+                rawSetPriority[activateForSource] = priority;
                 SteamVR_ActionSet_Manager.SetChanged();
 
-                rawSetLastChanged[sourceIndex] = Time.realtimeSinceStartup;
+                rawSetLastChanged[activateForSource] = Time.realtimeSinceStartup;
             }
         }
 
@@ -541,16 +568,14 @@ namespace Valve.VR
         /// </summary>
         public void Deactivate(SteamVR_Input_Sources forSource = SteamVR_Input_Sources.Any)
         {
-            int sourceIndex = (int)forSource;
-
-            if (rawSetActive[sourceIndex] != false)
+            if (rawSetActive[forSource] != false)
             {
-                rawSetLastChanged[sourceIndex] = Time.realtimeSinceStartup;
+                rawSetLastChanged[forSource] = Time.realtimeSinceStartup;
                 SteamVR_ActionSet_Manager.SetChanged();
             }
 
-            rawSetActive[sourceIndex] = false;
-            rawSetPriority[sourceIndex] = 0;
+            rawSetActive[forSource] = false;
+            rawSetPriority[forSource] = 0;
         }
 
         private string cachedShortName;
@@ -568,20 +593,17 @@ namespace Valve.VR
 
         public bool ReadRawSetActive(SteamVR_Input_Sources inputSource)
         {
-            int sourceIndex = (int)inputSource;
-            return rawSetActive[sourceIndex];
+            return rawSetActive[inputSource];
         }
 
         public float ReadRawSetLastChanged(SteamVR_Input_Sources inputSource)
         {
-            int sourceIndex = (int)inputSource;
-            return rawSetLastChanged[sourceIndex];
+            return rawSetLastChanged[inputSource];
         }
 
         public int ReadRawSetPriority(SteamVR_Input_Sources inputSource)
         {
-            int sourceIndex = (int)inputSource;
-            return rawSetPriority[sourceIndex];
+            return rawSetPriority[inputSource];
         }
     }
     /// <summary>

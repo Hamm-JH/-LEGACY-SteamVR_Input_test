@@ -5,7 +5,11 @@
       "app_key": "application.generated.unity.steamvr_input_test.exe",
       "launch_type": "url",
       "url": "steam://launch/",
+<<<<<<< HEAD
       "action_manifest_path": "D:\\Unity Projects\\SteamVR_Input_Extension\\Assets\\StreamingAssets\\SteamVR\\actions.json",
+=======
+      "action_manifest_path": "D:\\Project HTC VIVE\\SteamVR_Input_test\\actions.json",
+>>>>>>> parent of 91a73b6... [Update] SteamVR -> V2.6.1
       "strings": {
         "en_us": {
           "name": "SteamVR_Input_test_2 [Testing]"
